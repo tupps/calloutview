@@ -103,7 +103,7 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
 			// set iOS 7 specific styles
 			if (self.shouldDrawiOS7UserInterface) {
 				titleLabel.textColor = [UIColor darkTextColor];
-				titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+				titleLabel.font = [[UIFont preferredFontForTextStyle:UIFontTextStyleBody] fontWithSize:16];
 				titleLabel.shadowColor = nil;
 				titleLabel.shadowOffset = CGSizeZero;
 			}
@@ -133,7 +133,7 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
 			// set iOS 7 specific styles
 			if (self.shouldDrawiOS7UserInterface) {
 				subtitleLabel.textColor = [UIColor darkTextColor];
-				subtitleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleCaption1];
+				subtitleLabel.font = [[UIFont preferredFontForTextStyle:UIFontTextStyleCaption1] fontWithSize:12];
 				subtitleLabel.shadowColor = nil;
 				subtitleLabel.shadowOffset = CGSizeZero;
 			}
@@ -622,7 +622,7 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
     self.titleViewOrDefault.$width = self.$width - self.layoutInnerContentMarginLeft - self.layoutInnerContentMarginRight;
     
     self.subtitleViewOrDefault.$x = self.titleViewOrDefault.$x;
-    self.subtitleViewOrDefault.$y = SUBTITLE_TOP + dy;
+    self.subtitleViewOrDefault.$y = SUBTITLE_TOP + dy - (self.shouldDrawiOS7UserInterface ? 3 : 0);
     self.subtitleViewOrDefault.$width = self.titleViewOrDefault.$width;
 	   
     self.leftAccessoryView.$x = [self layoutLeftAccessoryMarginWidth];
@@ -738,7 +738,7 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
  */
 - (CGFloat)layoutAccessoryYOrigin {
 	if (self.shouldDrawiOS7UserInterface) {
-		return 0.0f;
+		return 2.0f;
 	}
 	
 	return 8.0f;
@@ -1161,7 +1161,7 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
 
 - (void)drawRect:(CGRect)rect {
 	BOOL pointingUp = self.arrowPoint.y < self.$height/2;
-    CGSize anchorSize = CGSizeMake(27, ANCHOR_HEIGHT);
+    CGSize anchorSize = CGSizeMake((self.shouldDrawiOS7UserInterface ? 30 : 27), ANCHOR_HEIGHT);
     CGFloat anchorX = roundf(self.arrowPoint.x - anchorSize.width / 2);
     CGRect anchorRect = CGRectMake(anchorX, 0, anchorSize.width, anchorSize.height);
     
@@ -1208,12 +1208,17 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
         [backgroundPath moveToPoint:CGPointMake(CGRectGetMinX(frame), CGRectGetMinY(frame) + radius)];
         [backgroundPath addLineToPoint:CGPointMake(CGRectGetMinX(frame), CGRectGetMaxY(frame) - radius)]; // left
         [backgroundPath addArcWithCenter:CGPointMake(CGRectGetMinX(frame) + radius, CGRectGetMaxY(frame) - radius) radius:radius startAngle:M_PI endAngle:M_PI / 2 clockwise:NO]; // bottom-left corner
-        
+
+        float r1 = 3;
+        float r2 = 5;
+
         // pointer down
         if (!pointingUp) {
-            [backgroundPath addLineToPoint:CGPointMake(CGRectGetMinX(anchorRect), CGRectGetMaxY(frame))];
-            [backgroundPath addLineToPoint:CGPointMake(CGRectGetMinX(anchorRect) + anchorRect.size.width / 2, CGRectGetMaxY(frame) + anchorRect.size.height)];
-            [backgroundPath addLineToPoint:CGPointMake(CGRectGetMaxX(anchorRect), CGRectGetMaxY(frame))];
+            [backgroundPath addLineToPoint:CGPointMake(CGRectGetMinX(anchorRect) - r1, CGRectGetMaxY(frame))];
+            [backgroundPath addLineToPoint:CGPointMake(CGRectGetMinX(anchorRect) + anchorRect.size.width / 2 - r2, CGRectGetMaxY(frame) + anchorRect.size.height)];
+            [backgroundPath addArcWithCenter:CGPointMake(CGRectGetMinX(anchorRect) + anchorRect.size.width / 2, CGRectGetMaxY(frame) + anchorRect.size.height - r2) radius:r2 * 1.5 startAngle:M_PI * 0.75 endAngle:M_PI * 0.25 clockwise:NO];
+            [backgroundPath addLineToPoint:CGPointMake(CGRectGetMinX(anchorRect) + anchorRect.size.width / 2 + r2, CGRectGetMaxY(frame) + anchorRect.size.height)];
+            [backgroundPath addLineToPoint:CGPointMake(CGRectGetMaxX(anchorRect) + r1, CGRectGetMaxY(frame))];
         }
         
         [backgroundPath addLineToPoint:CGPointMake(CGRectGetMaxX(frame) - radius, CGRectGetMaxY(frame))]; // bottom
