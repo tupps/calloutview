@@ -152,7 +152,6 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
 	
 	if (self.shouldDrawiOS7UserInterface) {
 		_backgroundView = [[SMCalloutDrawnBackgroundView alloc] init];
-	
 	} else {
 		_backgroundView = [[SMCalloutDrawniOS6BackgroundView alloc] init];
 	}
@@ -193,6 +192,15 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
 			[self removeGestureRecognizer:pressRecognizer];
 		}
 	}
+}
+
+- (void)setAccessoryBackgroundColor:(UIColor *)accessoryBackgroundColor {
+    _accessoryBackgroundColor = accessoryBackgroundColor;
+    
+    if ([self.backgroundView isKindOfClass:[SMCalloutDrawnBackgroundView class]]) {
+        ((SMCalloutDrawnBackgroundView *)self.backgroundView).leftAccessoryBackingColor = accessoryBackgroundColor;
+        [self.backgroundView setNeedsDisplay];
+    }
 }
 
 #pragma mark Presentation
@@ -350,7 +358,7 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
     
     // pass on the anchor point to our background view so it knows where to draw the arrow
     self.backgroundView.arrowPoint = anchorPoint;
-
+    
     // adjust it to unit coordinates for the actual layer.anchorPoint property
     anchorPoint.x /= self.$width;
     anchorPoint.y /= self.$height;
@@ -631,6 +639,10 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
     else
         self.leftAccessoryView.$y = [self layoutAccessoryYOrigin] + [self centeredPositionOfView:self.leftAccessoryView ifSmallerThan:ACCESSORY_HEIGHT] + dy;
     
+    if ([self.backgroundView isKindOfClass:[SMCalloutDrawnBackgroundView class]]) {
+        ((SMCalloutDrawnBackgroundView *)self.backgroundView).leftAccessoryWidth = self.leftAccessoryView.$x + self.leftAccessoryView.frame.size.width;
+    }
+    
     self.rightAccessoryView.$x = self.$width-[self layoutRightAccessoryMarginWidth]-self.rightAccessoryView.$width;
     if (self.contentView)
         self.rightAccessoryView.$y = TITLE_TOP + [self centeredPositionOfView:self.rightAccessoryView relativeToView:self.contentView] + dy;
@@ -651,7 +663,7 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
  * The smallest possible distance from the edge of our control to the "tip" of the anchor from the left.
  */
 - (CGFloat)layoutLeftAnchorMargin {
-	CGFloat margin = 37.0f;
+	CGFloat margin = 10.0f;
 	
 	if (self.shouldDrawiOS7UserInterface) {
 		// adding the left accessory width ensures we won't display the arrow where the background color of the accessory should be
@@ -665,7 +677,7 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
  * The smallest possible distance from the edge of our control to the "tip" of the anchor from the right.
  */
 - (CGFloat)layoutRightAnchorMargin {
-	return 37.0f;
+	return 10.0f;
 }
 
 - (CGFloat)layoutDefaultHeight {
@@ -1131,6 +1143,12 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
 
 #pragma mark
 
+@interface SMCalloutDrawnBackgroundView ()
+
+@property (nonatomic, strong) CALayer *backgroundMask;
+
+@end
+
 //
 // Custom-drawn flexible-height background implementation.
 // Contributed by Nicholas Shipes: https://github.com/u10int
@@ -1141,6 +1159,10 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
     if (self = [super initWithFrame:frame]) {
         self.backgroundColor = [UIColor clearColor];
         self.opaque = NO;
+        
+        self.backgroundMask = [CALayer layer];
+        self.backgroundMask.delegate = self;
+        self.layer.mask = self.backgroundMask;
     }
 	
     return self;
@@ -1149,8 +1171,13 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
 // Make sure we redraw our graphics when the arrow point changes!
 - (void)setArrowPoint:(CGPoint)arrowPoint {
     [super setArrowPoint:arrowPoint];
-	
     [self setNeedsDisplay];
+    [self.backgroundMask setNeedsDisplay];
+}
+
+- (void)setFrame:(CGRect)frame {
+    [super setFrame:frame];
+    self.backgroundMask.frame = self.bounds;
 }
 
 - (void)setSelected:(BOOL)selected {
@@ -1160,7 +1187,33 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
 }
 
 - (void)drawRect:(CGRect)rect {
-	BOOL pointingUp = self.arrowPoint.y < self.$height/2;
+//Needs to be exist for drawLayer:inContext: to be called.
+}
+
+- (void)drawLayer:(CALayer *)layer inContext:(CGContextRef)context {
+    if (layer == self.backgroundMask) {
+        [self drawBackgroundMask:context];
+    } else {
+        [self drawColors:context];
+    }
+}
+
+- (void) drawColors:(CGContextRef)context {
+   
+    CGContextSaveGState(context);
+    UIGraphicsPushContext(context);
+    [[UIColor whiteColor] setFill];
+    [[UIBezierPath bezierPathWithRect:self.bounds] fill];
+    if (self.leftAccessoryBackingColor) {
+        [self.leftAccessoryBackingColor setFill];
+        [[UIBezierPath bezierPathWithRect:CGRectMake(0.0f, 0.0f, self.leftAccessoryWidth, 100.0f)] fill];
+    }
+    UIGraphicsPopContext();
+    CGContextRestoreGState(context);
+}
+
+- (void)drawBackgroundMask:(CGContextRef)context {
+    BOOL pointingUp = self.arrowPoint.y < self.$height/2;
     CGSize anchorSize = CGSizeMake((self.shouldDrawiOS7UserInterface ? 30 : 27), ANCHOR_HEIGHT);
     CGFloat anchorX = roundf(self.arrowPoint.x - anchorSize.width / 2);
     CGRect anchorRect = CGRectMake(anchorX, 0, anchorSize.width, anchorSize.height);
@@ -1176,11 +1229,11 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
     // determine size
     CGFloat radius = [[self class] cornerRadiusUsingiOS7Style:self.shouldDrawiOS7UserInterface];
 	CGFloat strokeWidth = 1.0f / [UIScreen mainScreen].scale;
-
-    rect = CGRectMake(self.bounds.origin.x + strokeWidth/2,
-					  self.bounds.origin.y + [self layoutTopShadowBuffer],
-					  self.bounds.size.width - strokeWidth,
-					  self.bounds.size.height - ANCHOR_HEIGHT - strokeWidth - [self layoutTopShadowBuffer] - [self layoutBottomShadowBuffer] - OFFSET_FROM_ORIGIN);
+    
+    CGRect rect = CGRectMake(self.bounds.origin.x + strokeWidth/2,
+                             self.bounds.origin.y + [self layoutTopShadowBuffer],
+                             self.bounds.size.width - strokeWidth,
+                             self.bounds.size.height - ANCHOR_HEIGHT - strokeWidth - [self layoutTopShadowBuffer] - [self layoutBottomShadowBuffer] - OFFSET_FROM_ORIGIN);
 	
 	if (pointingUp) {
 		rect.origin.y += ANCHOR_HEIGHT - strokeWidth / 2.0;
@@ -1191,11 +1244,12 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
     
     
     // General Declarations
-    CGContextRef context = UIGraphicsGetCurrentContext();
-    UIColor *fillColor = [UIColor whiteColor];
+    UIColor *fillColor = [UIColor greenColor];
 	UIColor *selectedFillColor = [UIColor colorWithWhite:0.85 alpha:1.0];
 	UIColor *strokeColor = [UIColor colorWithWhite:0 alpha:0.1];
     CGRect frame = rect;
+    //    self.backgroundMask.frame = rect;
+    //    [self.backgroundMask setNeedsDisplay];
     
     //// CoreGroup ////
     {
@@ -1208,10 +1262,10 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
         [backgroundPath moveToPoint:CGPointMake(CGRectGetMinX(frame), CGRectGetMinY(frame) + radius)];
         [backgroundPath addLineToPoint:CGPointMake(CGRectGetMinX(frame), CGRectGetMaxY(frame) - radius)]; // left
         [backgroundPath addArcWithCenter:CGPointMake(CGRectGetMinX(frame) + radius, CGRectGetMaxY(frame) - radius) radius:radius startAngle:M_PI endAngle:M_PI / 2 clockwise:NO]; // bottom-left corner
-
+        
         float r1 = 3;
         float r2 = 5;
-
+        
         // pointer down
         if (!pointingUp) {
             [backgroundPath addLineToPoint:CGPointMake(CGRectGetMinX(anchorRect) - r1, CGRectGetMaxY(frame))];
@@ -1236,8 +1290,9 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
         [backgroundPath addLineToPoint:CGPointMake(CGRectGetMinX(frame) + radius, CGRectGetMinY(frame))]; // top
         [backgroundPath addArcWithCenter:CGPointMake(CGRectGetMinX(frame) + radius, CGRectGetMinY(frame) + radius) radius:radius startAngle:-M_PI / 2 endAngle:M_PI clockwise:NO]; // top-left corner
         [backgroundPath closePath];
+        
         CGContextSaveGState(context);
-		
+		UIGraphicsPushContext(context);
 		
 		// determine the appropriate background color
 		if (self.selected) {
@@ -1254,9 +1309,11 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
         [backgroundPath stroke];
         
         CGContextEndTransparencyLayer(context);
+        UIGraphicsPopContext();
         CGContextRestoreGState(context);
     }
 }
+
 
 @end
 
@@ -1266,6 +1323,7 @@ NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView = 1.0/3.0;
 @implementation SMCalloutDrawniOS6BackgroundView
 
 - (void)drawRect:(CGRect)rect {
+    self.layer.mask = nil; //Remove the IOS 7 mask.
 	
     BOOL pointingUp = self.arrowPoint.y < self.$height/2;
     CGSize anchorSize = CGSizeMake(27, ANCHOR_HEIGHT);

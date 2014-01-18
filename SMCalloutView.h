@@ -51,6 +51,7 @@ extern NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView;
 @property (nonatomic, unsafe_unretained) id<SMCalloutViewDelegate> delegate;
 @property (nonatomic, copy) NSString *title, *subtitle; // title/titleView relationship mimics UINavigationBar.
 @property (nonatomic, retain) UIView *leftAccessoryView, *rightAccessoryView;
+@property (nonatomic, retain) UIColor *accessoryBackgroundColor; 
 @property (nonatomic, readonly) SMCalloutArrowDirection currentArrowDirection;
 @property (nonatomic, retain) SMCalloutBackgroundView *backgroundView; // default is [SMCalloutDrawnBackgroundView new]
 
@@ -208,6 +209,10 @@ extern NSTimeInterval kSMCalloutViewRepositionDelayForUIScrollView;
  * Draws a custom background matching the iOS 7 system background but can grow in height.
  */
 @interface SMCalloutDrawnBackgroundView : SMCalloutBackgroundView
+
+@property (nonatomic, strong) UIColor *leftAccessoryBackingColor;
+@property (nonatomic, assign) CGFloat leftAccessoryWidth;
+
 @end
 
 
